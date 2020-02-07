@@ -1,7 +1,7 @@
-import os, sequtils, strutils, terminal, algorithm
+import os, sequtils, strutils, terminal, algorithm, unicode
 
 let filtered = filterIt(toSeq(walkDir(".", true)), not(it.path.startsWith(".")))
-let dirs = sortedByIt(filtered, it.path)
+let dirs = sortedByIt(filtered, it.path.toUpper)
 let maxNameLen = max(dirs.mapIt(it.path.len)) + 2
 let totalLen = foldl(dirs.mapIt(it.path.len), a + b + 2) - 2
 var entriesPerLine = max((terminalWidth() - 5) div maxNameLen, 1)
@@ -13,32 +13,50 @@ if (terminalWidth() - 5) > totalLen:
 
 proc alignFn(name: string, padLen: int): string =
   if numLines > 1:
-    return alignLeft(name, padLen)
+    return strutils.alignLeft(name, padLen)
   return name & "  "
 
-#[
-var colIdx:int = 0
-for entry in dirs:
-  if colIdx == entriesPerLine:
-    colIdx = 0
-  if colIdx == 0:
-    setForegroundColor(fgRed)
-  echo entry.path
-  resetAttributes()
-  inc(colIdx)
-]#
+proc emitEntry(entry: tuple[kind: PathComponent, path: string ], maxNameLen: int) =
+  # Useful debugging code
+  # stdout.write(alignFn($(entry.path.len), maxNameLen))
+  # stdout.write(alignFn($($maxNameLen & " - " & $(entry.path.len)), maxNameLen))
 
-var outputCount = 0
-for entry in dirs:
   if entry.kind == pcFile or entry.kind == pcLinkToFile:
+    setForegroundColor(fgWhite)
     stdout.write(alignFn(entry.path, maxNameLen))
+    resetAttributes()
   if entry.kind == pcDir or entry.kind == pcLinkToDir:
-    setForegroundColor(fgBlue)
+    setForegroundColor(fgCyan)
     stdout.write(entry.path)
+    resetAttributes()
     stdout.write(alignFn("/", maxNameLen - entry.path.len))
-  resetAttributes()
-  inc(outputCount)
-  if numLines > 1 and (outputCount == entriesPerLine):
-    stdout.write("\p")
-    outputCount = 0
+
+if numLines <= 1:
+  for elem in dirs:
+    emitEntry(elem, maxNameLen)
+  echo ""
+  quit()
+
+let outputDirs = dirs.distribute(entriesPerLine)
+# for line in outputDirs:
+#   echo line
+var colWidths = newSeq[int]()
+
+for col in outputDirs:
+  var maxColNameLen: int = 0
+  for line in col:
+    maxColNameLen = max(line.path.len, maxColNameLen)
+  colWidths.add(maxColNameLen + 2)
+
+# echo colWidths
+
+for lineIdx in 0..numLines:
+  var colIdx = 0
+  for col in outputDirs:
+    if len(col) > lineIdx:
+      let elem = col[lineIdx]
+      let w = colWidths[colIdx]
+      emitEntry(elem, w)
+    inc(colIdx)
+  stdout.write("\p")
 echo ""
