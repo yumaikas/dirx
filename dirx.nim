@@ -2,6 +2,11 @@ import os, sequtils, strutils, terminal, algorithm, unicode
 
 let filtered = filterIt(toSeq(walkDir(".", true)), not(it.path.startsWith(".")))
 let dirs = sortedByIt(filtered, it.path.toUpper)
+
+if dirs.len == 0:
+    echo "Empty dir"
+    quit(0)
+
 let maxNameLen = max(dirs.mapIt(it.path.len)) + 2
 let totalLen = foldl(dirs.mapIt(it.path.len), a + b + 2) - 2
 var entriesPerLine = max((terminalWidth() - 5) div maxNameLen, 1)
